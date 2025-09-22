@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
 <link rel="icon" href="../img/favicon.ico">
@@ -11,6 +11,84 @@
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css" />
+
+<!-- ADDED: Lock screen styling (does not remove/change any existing lines) -->
+<style>
+  /* fullscreen overlay */
+  #lock-screen {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10,10,10,0.98);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 2147483647; /* very top */
+    gap: 12px;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+
+  #lock-screen h2 {
+    margin: 0 0 8px 0;
+    font-size: 28px;
+    font-family: Roboto Condensed, sans-serif;
+  }
+
+  #lock-screen input {
+    padding: 10px 12px;
+    font-size: 18px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.03);
+    color: #fff;
+    outline: none;
+    min-width: 220px;
+    text-align: center;
+  }
+
+  #lock-screen button {
+    padding: 10px 18px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: none;
+    background: #2e8b57;
+    color: white;
+    cursor: pointer;
+  }
+
+  #lock-screen button:active { transform: translateY(1px); }
+
+  #lock-screen p#errorMessage { margin: 6px 0 0 0; color: #ff6b6b; display: none; }
+
+  /* Prevent interacting with the page while locked */
+  body.locked * {
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* Allow interactions inside the lock screen */
+  #lock-screen,
+  #lock-screen * {
+    pointer-events: auto;
+    user-select: auto;
+  }
+
+  /* Make sure scroll isn't possible while locked */
+  body.locked {
+    overflow: hidden !important;
+  }
+
+  /* small responsive tweak */
+  @media (max-width: 420px) {
+    #lock-screen h2 { font-size: 20px; }
+    #lock-screen input { min-width: 170px; font-size: 16px; }
+  }
+</style>
+
 <!-- Global site tag (gtag.js) - Google Analytics -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-FHBHBPNBQX"></script>
 <script>
@@ -292,6 +370,14 @@
 
 <body style="text-align: center; font-size: 21px; font-family: Roboto Condensed">
 
+  <!-- ADDED: Password lock screen inserted without removing any original code -->
+  <div id="lock-screen" aria-live="polite" role="dialog" aria-label="Password required">
+    <h2>Enter Password to Continue</h2>
+    <input id="passwordInput" type="password" placeholder="Password" aria-label="Password input">
+    <button id="unlockBtn" type="button">Unlock</button>
+    <p id="errorMessage">Incorrect password!</p>
+  </div>
+
   <div class="games">
     <div class="item">
     <A href="../game/yohoho">
@@ -492,6 +578,116 @@
 
 <h3>Powered by <a class="poweredby-a" href="https://pirategamesstudio.github.io"">Pirate Games Studio</a></h3>
       </body>
+
+<!-- ADDED: lock-screen functionality (keeps everything as you had it; script placed before your other scripts) -->
+<script>
+  (function(){
+    const PASS = "Eli";
+    // expose checkPassword for inline handlers if needed
+    window.checkPassword = checkPassword;
+
+    function showError(msg) {
+      var e = document.getElementById('errorMessage');
+      if (e) {
+        e.textContent = msg || 'Incorrect password!';
+        e.style.display = 'block';
+      }
+    }
+
+    function hideError() {
+      var e = document.getElementById('errorMessage');
+      if (e) e.style.display = 'none';
+    }
+
+    function unlockUI() {
+      var overlay = document.getElementById('lock-screen');
+      if (overlay) overlay.style.display = 'none';
+      document.body.classList.remove('locked');
+      hideError();
+    }
+
+    function checkPassword() {
+      var inputEl = document.getElementById('passwordInput');
+      var val = inputEl ? inputEl.value : '';
+      if (val === PASS) {
+        unlockUI();
+      } else {
+        showError('Incorrect password!');
+        if (inputEl) {
+          inputEl.value = '';
+          inputEl.focus();
+        }
+      }
+    }
+
+    // Init: lock page and wire up UI
+    function initLock() {
+      // apply locked state (prevents clicks to page)
+      document.body.classList.add('locked');
+
+      // focus input
+      var inputEl = document.getElementById('passwordInput');
+      if (inputEl) {
+        inputEl.focus();
+        // enter key works
+        inputEl.addEventListener('keydown', function(e){
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            checkPassword();
+          }
+          // prevent tabbing out of the overlay
+          if (e.key === 'Tab') {
+            e.preventDefault();
+            // keep focus cycling inside input/button only
+            var unlockBtn = document.getElementById('unlockBtn');
+            if (document.activeElement === inputEl && unlockBtn) {
+              unlockBtn.focus();
+            } else {
+              inputEl.focus();
+            }
+          }
+        });
+      }
+
+      var btn = document.getElementById('unlockBtn');
+      if (btn) {
+        btn.addEventListener('click', function(e){
+          e.preventDefault();
+          checkPassword();
+        });
+      }
+
+      // Focus trap: keep focus inside overlay
+      document.addEventListener('focusin', function(e){
+        var overlay = document.getElementById('lock-screen');
+        if (!overlay) return;
+        if (!overlay.contains(e.target)) {
+          // push focus back to input
+          var input = document.getElementById('passwordInput');
+          if (input) input.focus();
+        }
+      }, true);
+
+      // block escape key from accidentally closing things
+      window.addEventListener('keydown', function(e){
+        if (e.key === 'Escape') {
+          e.preventDefault();
+        }
+      }, true);
+    }
+
+    // Run when DOM is ready (some of your page elements are outside body in original, but this still runs)
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initLock);
+    } else {
+      initLock();
+    }
+
+    // Expose for debugging if you want
+    window._unlockUI = unlockUI;
+  })();
+</script>
+
 <script src="../js/observers.js"></script>
 <script src="../js/Script.js" defer></script>
 </html>
